@@ -9,3 +9,4 @@ htmlcov/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+scripts/qwen38_v2/server.env
