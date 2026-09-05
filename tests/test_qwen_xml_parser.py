@@ -65,6 +65,17 @@ class QwenXmlParserTest(unittest.TestCase):
             [(0, "a", {}), (1, "b", {"x": "2"})],
         )
 
+    def test_rejects_nested_or_dangling_parameter_tags(self) -> None:
+        malformed = (
+            "<tool_call><function=find_user>"
+            "<parameter=name>Mei<parameter=zip>28236</parameter>"
+            "</function></tool_call>"
+        )
+
+        decoder = default_decoder("qwen_xml")
+
+        self.assertEqual(tuple(decoder.feed(StreamChunk(text=malformed))), ())
+
 
 if __name__ == "__main__":
     unittest.main()

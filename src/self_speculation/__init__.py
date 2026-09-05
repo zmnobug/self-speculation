@@ -101,6 +101,12 @@ from .models import (
     ToolCall,
     ToolCallDelta,
 )
+from .qwen import (
+    QWEN_JSON_TOOL_PROTOCOL,
+    is_qwen35_family,
+    render_qwen_json_tool_prompt,
+    with_qwen_json_tool_protocol,
+)
 from .events import (
     DraftClearedEvent,
     DraftFailedEvent,
@@ -214,6 +220,7 @@ __all__ = [
     "ParserRegistry",
     "PrefixForkBuilder",
     "QwenXmlToolCallParser",
+    "QWEN_JSON_TOOL_PROTOCOL",
     "SamplingParamsFactory",
     "PythonicToolCallParser",
     "StreamChunk",
@@ -259,11 +266,14 @@ __all__ = [
     "default_parser_registry",
     "first_output_trigger",
     "format_tool_call_draft",
+    "is_qwen35_family",
     "install_vllm_request_id_hook",
     "install_vllm_http_routes",
     "install_vllm_worker_rpc",
     "install_sglang_plugin",
     "install_self_speculation_routes",
+    "render_qwen_json_tool_prompt",
     "validate_request",
     "verify_fork_cache",
+    "with_qwen_json_tool_protocol",
 ]

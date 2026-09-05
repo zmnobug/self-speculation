@@ -90,6 +90,11 @@ waits for the fork's terminal boundary and atomically uses the complete decoded
 batch. This prevents the first parallel call from prematurely closing the
 candidate while preserving concurrent main-stream progress.
 
+If the authoritative main stream finishes first, its completion wins the race:
+the unfinished fork and draft submission are cancelled and the fork iterator is
+closed. A late prediction cannot accelerate the completed request and must not
+keep `run()` or request-scoped engine state alive.
+
 ### Streaming tool-call decoding
 
 `StreamingToolCallDecoder` accepts both structured provider deltas and raw text.

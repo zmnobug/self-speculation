@@ -148,6 +148,7 @@ class ForkController:
                 or self.draft_feedback is None
                 or self.draft_builder is None
                 or fork_request is None
+                or main_task is None
             ):
                 return
             draft_started = True
@@ -203,6 +204,22 @@ class ForkController:
                                 yield ForkStartedEvent(fork_request, snapshot)
 
                         main_task = asyncio.create_task(anext(main_iterator))
+
+                # A fork that loses the race with the authoritative stream can
+                # no longer accelerate that request. Give main completion
+                # precedence even when both tasks become ready in one loop turn.
+                if main_task is None and fork_task is not None:
+                    fork_task.cancel()
+                    await asyncio.gather(fork_task, return_exceptions=True)
+                    fork_task = None
+                    fork_terminal = True
+                    yield ForkSkippedEvent(
+                        "main stream completed before the fork finished"
+                    )
+                if main_task is None and draft_task is not None:
+                    draft_task.cancel()
+                    await asyncio.gather(draft_task, return_exceptions=True)
+                    draft_task = None
 
                 if fork_task is not None and fork_task in done:
                     try:

@@ -16,6 +16,14 @@ _PARAMETER_RE = re.compile(
     r"<\s*parameter\s*=\s*([^>]+?)\s*>(.*?)<\s*/\s*parameter\s*>",
     re.DOTALL | re.IGNORECASE,
 )
+_PARAMETER_OPEN_RE = re.compile(
+    r"<\s*parameter\s*=",
+    re.IGNORECASE,
+)
+_PARAMETER_CLOSE_RE = re.compile(
+    r"<\s*/\s*parameter\s*>",
+    re.IGNORECASE,
+)
 
 
 def _trim_wrapping_newline(value: str) -> str:
@@ -43,11 +51,25 @@ class QwenXmlToolCallParser:
             if not function_name:
                 continue
             body = match.group(2)
+            parameters = tuple(_PARAMETER_RE.finditer(body))
+            # Reject nested, dangling, or parser-contaminated parameter tags.
+            # The Qwen protocol has a flat parameter list, so treating malformed
+            # markup as a speculative call could execute different arguments.
+            if (
+                len(_PARAMETER_OPEN_RE.findall(body)) != len(parameters)
+                or len(_PARAMETER_CLOSE_RE.findall(body)) != len(parameters)
+                or any(
+                    _PARAMETER_OPEN_RE.search(parameter.group(2))
+                    or _PARAMETER_CLOSE_RE.search(parameter.group(2))
+                    for parameter in parameters
+                )
+            ):
+                continue
             arguments = {
                 parameter.group(1).strip(): _trim_wrapping_newline(
                     parameter.group(2)
                 )
-                for parameter in _PARAMETER_RE.finditer(body)
+                for parameter in parameters
                 if parameter.group(1).strip()
             }
             calls.append(

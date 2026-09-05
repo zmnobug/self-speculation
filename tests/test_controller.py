@@ -66,6 +66,24 @@ class EmptyEngine:
         yield StreamChunk(finish_reason="stop")
 
 
+class FastMainSlowForkEngine:
+    name = "fast-main-slow-fork"
+    capabilities = EngineCapabilities(prompt=True)
+
+    def __init__(self) -> None:
+        self.fork_cancelled = asyncio.Event()
+
+    async def stream(self, request: InferenceRequest) -> AsyncIterator[StreamChunk]:
+        if request.request_id.endswith(":fork"):
+            try:
+                await asyncio.sleep(10)
+                yield StreamChunk(text="too late")
+            finally:
+                self.fork_cancelled.set()
+            return
+        yield StreamChunk(text="done", token_ids=(1,), finish_reason="stop")
+
+
 class ForkControllerTest(unittest.IsolatedAsyncioTestCase):
     async def test_forks_after_first_output_and_keeps_main_streaming(self) -> None:
         engine = CoordinatedEngine()
@@ -139,6 +157,23 @@ class ForkControllerTest(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaisesRegex(ValueError, "cannot decode"):
             await controller.run(InferenceRequest(prompt="P", request_id="strict"))
+
+    async def test_cancels_a_fork_that_loses_to_main_completion(self) -> None:
+        engine = FastMainSlowForkEngine()
+        controller = ForkController(
+            engine,
+            PrefixForkBuilder(forced_prefix="<tool>"),
+            FakeDecoder,
+        )
+
+        result = await asyncio.wait_for(
+            controller.run(InferenceRequest(prompt="P", request_id="race")),
+            timeout=1,
+        )
+
+        self.assertEqual(result.main.generated_text, "done")
+        self.assertEqual(result.skipped_reason, "main stream completed before the fork finished")
+        self.assertTrue(engine.fork_cancelled.is_set())
 
 
 if __name__ == "__main__":

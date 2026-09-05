@@ -169,6 +169,33 @@ controller = ForkController(
 )
 ```
 
+### Qwen3.5 / Qwen3.8 protocol selection
+
+Qwen3.5-family checkpoints may switch their native chat template to XML tool
+calls when `tools=` is supplied. Use `qwen_xml` when the authoritative Actor
+request follows that native format. To reproduce SPORK's paper-aligned tagged
+JSON protocol instead, render the Actor request and every fork from the same raw
+prompt with `render_qwen_json_tool_prompt`; the helper copies the messages,
+places compact OpenAI tool schemas in the system instruction, and deliberately
+does not pass `tools=` to the native template:
+
+```python
+from self_speculation import render_qwen_json_tool_prompt
+
+prompt = render_qwen_json_tool_prompt(
+    tokenizer,
+    messages,
+    tools,
+    enable_thinking=True,
+)
+```
+
+Use the resulting prompt with the `tagged_json` decoder/formatter. Do not render
+only the fork this way while the Actor uses native XML: their token prefixes
+would differ, preventing exact KV-cache reuse. `is_qwen35_family` recognizes
+Qwen3.5 through Qwen3.9 deployment aliases when a launcher needs an explicit
+family check. Boundary token IDs remain tokenizer-derived rather than hardcoded.
+
 ## D3 draft feedback
 
 Decoding a fork predicts an action batch, but it only accelerates main-model token
@@ -313,7 +340,7 @@ python -m compileall -q src examples tests
 python examples/d3_in_memory.py
 ```
 
-The test suite covers controller concurrency and cleanup, every parser family,
+The test suite covers controller concurrency, losing-fork cancellation and cleanup, every parser family,
 all engine adapters, draft formatting/feedback/storage, vLLM proposal routing,
 Transformers candidate verification, llama.cpp draft callbacks, SGLang NGRAM
 hooks, worker RPC, and HTTP endpoints.
